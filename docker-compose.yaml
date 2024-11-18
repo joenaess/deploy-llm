@@ -1,0 +1,74 @@
+services:
+  vllm:
+    name: llm
+    image: vllm/vllm-openai:latest
+    ports:
+      - 8000:8000
+    environment:
+      VLLM_API_KEY: secret
+    volumes:
+      - $HOME/.cache/huggingface:/root/.cache/huggingface
+    networks:
+      - internal
+    command: --model meta-llama/Llama-3.1-70B-Instruct --tensor-parallel-size 2 --gpu-memory-utilization 0.95 --disable_log_requests
+    restart: always
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+  gpu-stats:
+    name: gpu-stats
+    image: nvcr.io/nvidia/k8s/dcgm-exporter:3.3.8-3.6.0-ubuntu22.04
+    ports:
+      - 9400:9400
+    networks:
+      - internal
+    cap_add:
+      - SYS_ADMIN
+    restart: always
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  prometheus:
+    name: prometheus
+    image: prom/prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-storage:/prometheus
+    networks:
+      - internal
+    restart: always
+
+  grafana:
+    name: grafana
+    image: grafana/grafana
+    ports:
+      - 3000:3000
+    environment:
+      PROMETHEUS_HOST: prometheus
+      PROMETHEUS_PORT: 9090
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana-provisioning:/etc/grafana/provisioning
+    networks:
+      - internal
+    restart: always
+
+volumes:
+  prometheus-storage:
+  grafana-storage:
+
+networks:
+  internal:
+
