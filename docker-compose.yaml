@@ -1,6 +1,5 @@
 services:
   vllm:
-    name: llm
     image: vllm/vllm-openai:latest
     ports:
       - 8000:8000
@@ -21,7 +20,6 @@ services:
               count: all
               capabilities: [gpu]
   gpu-stats:
-    name: gpu-stats
     image: nvcr.io/nvidia/k8s/dcgm-exporter:3.3.8-3.6.0-ubuntu22.04
     ports:
       - 9400:9400
@@ -39,7 +37,6 @@ services:
               capabilities: [gpu]
 
   prometheus:
-    name: prometheus
     image: prom/prometheus
     ports:
       - 9090:9090
@@ -51,7 +48,6 @@ services:
     restart: always
 
   grafana:
-    name: grafana
     image: grafana/grafana
     ports:
       - 3000:3000
