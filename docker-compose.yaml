@@ -1,6 +1,23 @@
+version: "3"
+
 services:
+  traefik:
+    image: traefik:v3.2
+    command:
+      - "--api.insecure=true" # Optional: Allows access to the Traefik dashboard
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - 80:80
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - internal
+    restart: always
+
   vllm:
-    image: vllm/vllm-openai:latest
+    image: vllm/vllm-openai:v0.6.4
     ports:
       - 8000:8000
     environment:
@@ -9,7 +26,12 @@ services:
       - $HOME/.cache/huggingface:/root/.cache/huggingface
     networks:
       - internal
-    command: --model meta-llama/Llama-3.1-70B-Instruct --tensor-parallel-size 2 --gpu-memory-utilization 0.95 --disable_log_requests
+    command: 
+      - "--model=meta-llama/Llama-3.1-70B-Instruct"
+      - "--tensor-parallel-size=2"
+      - "--gpu-memory-utilization=0.95"
+      - "--disable_log_requests"
+      - "--root-path=/llm"
     restart: always
     ipc: host
     deploy:
@@ -19,10 +41,15 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vllm.rule=PathPrefix(`/llm`)"
+      - "traefik.http.routers.vllm.middlewares=vllm-strip-prefix"
+      - "traefik.http.middlewares.vllm-strip-prefix.stripprefix.prefixes=/llm"
+      - "traefik.http.services.vllm.loadbalancer.server.port=8000"
+
   gpu-stats:
     image: nvcr.io/nvidia/k8s/dcgm-exporter:3.3.8-3.6.0-ubuntu22.04
-    ports:
-      - 9400:9400
     networks:
       - internal
     cap_add:
@@ -37,9 +64,7 @@ services:
               capabilities: [gpu]
 
   prometheus:
-    image: prom/prometheus
-    ports:
-      - 9090:9090
+    image: prom/prometheus:v3.0.0
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-storage:/prometheus
@@ -48,18 +73,23 @@ services:
     restart: always
 
   grafana:
-    image: grafana/grafana
-    ports:
-      - 3000:3000
+    image: grafana/grafana:11.3.1
     environment:
       PROMETHEUS_HOST: prometheus
       PROMETHEUS_PORT: 9090
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/stats/"
     volumes:
       - grafana-storage:/var/lib/grafana
       - ./grafana-provisioning:/etc/grafana/provisioning
     networks:
       - internal
     restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=PathPrefix(`/stats`)"
+      - "traefik.http.routers.grafana.middlewares=grafana-strip-prefix"
+      - "traefik.http.middlewares.grafana-strip-prefix.stripprefix.prefixes=/stats"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
 
 volumes:
   prometheus-storage:
