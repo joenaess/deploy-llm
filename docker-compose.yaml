@@ -53,9 +53,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.vllm.rule=PathPrefix(`/llm`)"
-      - "traefik.http.routers.vllm.middlewares=vllm-strip-prefix"
       - "traefik.http.routers.vllm.tls.certresolver=cert-resolver"
-      - "traefik.http.middlewares.vllm-strip-prefix.stripprefix.prefixes=/llm"
       - "traefik.http.services.vllm.loadbalancer.server.port=8000"
 
   gpu-stats:
