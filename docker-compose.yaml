@@ -1,5 +1,3 @@
-version: "3"
-
 services:
   traefik:
     image: traefik:v3.2
@@ -11,10 +9,9 @@ services:
 
       # HTTPS
       - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.cert-resolver.acme.email=dummy@email.com"
+      - "--certificatesresolvers.cert-resolver.acme.email=${ACME_EMAIL:-dummy@email.com}"
       - "--certificatesresolvers.cert-resolver.acme.storage=acme.json"
-      - "--certificatesresolvers.cert-resolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
-      # - "--certificatesresolvers.cert-resolver.acme.caserver=https://acme-v02.api.letsencrypt.org/"  # Use the real server
+      - "--certificatesresolvers.cert-resolver.acme.caserver=${CERTIFICATE_SERVER:-https://acme-staging-v02.api.letsencrypt.org/directory}"
       - "--certificatesresolvers.cert-resolver.acme.httpchallenge.entrypoint=web"
 
       # Redirect HTTP to HTTPS
@@ -32,10 +29,8 @@ services:
 
   vllm:
     image: vllm/vllm-openai:v0.6.4
-    ports:
-      - 8000:8000
     environment:
-      VLLM_API_KEY: secret
+      VLLM_API_KEY: ${VLLM_API_KEY:-secret-key}
     volumes:
       - $HOME/.cache/huggingface:/root/.cache/huggingface
     networks:
@@ -93,6 +88,8 @@ services:
       PROMETHEUS_HOST: prometheus
       PROMETHEUS_PORT: 9090
       GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/stats/"
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin}"
     volumes:
       - grafana-storage:/var/lib/grafana
       - ./grafana-provisioning:/etc/grafana/provisioning

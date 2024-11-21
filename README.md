@@ -18,10 +18,22 @@ To install all the requirements you need the following dependencies on your mach
 - Docker
 - Nvidia container toolkit
 
-You can install all of these dependencies on a clean ubuntu machine using `./install-script`.
+You can install all of these dependencies on a fresh ubuntu machine using `./install-script`.
 Be careful running this command if you do not have a clean machine.
 Reboot after installing for the changes to take effect.
 
+## Configuration of secrets
+
+You will want to change some settings before using this configuration in production,
+like changing the VLLM secret key and the grafana password. Configuration of secrets is
+handled in an `.env` file in the repository root. This file is ignored by git to ensure
+secrets are not accidentally committed. You can initalize a `.env` from our provided
+example by running
+
+```sh
+cp .env.example .env
+```
+
 ## Running
 
-Run everything with `docker compose up -d`
+Start the deployment with `docker compose up -d`
