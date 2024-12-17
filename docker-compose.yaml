@@ -13,11 +13,6 @@ services:
       - "--certificatesresolvers.cert-resolver.acme.storage=acme.json"
       - "--certificatesresolvers.cert-resolver.acme.caserver=${CERTIFICATE_SERVER:-https://acme-staging-v02.api.letsencrypt.org/directory}"
       - "--certificatesresolvers.cert-resolver.acme.httpchallenge.entrypoint=web"
-
-      # Redirect HTTP to HTTPS
-      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
-      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
     ports:
       - 80:80
       - 443:443
