@@ -1,24 +1,34 @@
+version: "3.7"
 services:
+
   traefik:
     image: traefik:v3.2
     command:
-      - "--api.insecure=true" # Optional: Allows access to the Traefik dashboard
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
 
-      # HTTPS
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.cert-resolver.acme.email=${ACME_EMAIL:-dummy@email.com}"
-      - "--certificatesresolvers.cert-resolver.acme.storage=/letsencrypt/acme.json"
-      - "--certificatesresolvers.cert-resolver.acme.caserver=${CERTIFICATE_SERVER:-https://acme-staging-v02.api.letsencrypt.org/directory}"
-      - "--certificatesresolvers.cert-resolver.acme.httpchallenge.entrypoint=web"
+      - "--api.insecure=true"
+
+      # Https
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=websecure"
+      - "--certificatesresolvers.letsencrypt.acme.caserver=${CERTIFICATE_SERVER:-https://acme-staging-v02.api.letsencrypt.org/directory}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-dummy@email.com}"
+
+      # Automatic redirect
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
     ports:
       - 80:80
       - 443:443
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - ./letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - internal
     restart: always
@@ -31,12 +41,14 @@ services:
       - $HOME/.cache/huggingface:/root/.cache/huggingface
     networks:
       - internal
-    command: 
+    command:
       - "--model=meta-llama/Llama-3.3-70B-Instruct"
       - "--tensor-parallel-size=2"
       - "--gpu-memory-utilization=0.95"
       - "--disable_log_requests"
       - "--root-path=/llm"
+    ports:
+      - 8000:8000
     restart: always
     ipc: host
     deploy:
@@ -47,12 +59,46 @@ services:
               count: all
               capabilities: [gpu]
     labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.vllm.loadbalancer.server.port=8000"
+      - "traefik.http.routers.vllm.rule=Host(`${DOMAIN}`) && PathPrefix(`/llm`)"
+      - "traefik.http.routers.vllm.middlewares=vllm-strip-prefix"
+      - "traefik.http.middlewares.vllm-strip-prefix.stripprefix.prefixes=/llm"
+
+      # Https
+      - "traefik.http.routers.vllm.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.websecure.tls=true"
+      - "traefik.http.routers.vllm.entrypoints=websecure"
+
+      # Auth
       - "traefik.http.routers.vllm.middlewares=vllm-basicauth"
       - "traefik.http.middlewares.vllm-basicauth.basicauth.users=${BASIC_AUTH_USERS}"
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    environment:
+      PROMETHEUS_HOST: prometheus
+      PROMETHEUS_PORT: 9090
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/stats/"
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin}"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana-provisioning:/etc/grafana/provisioning
+    networks:
+      - internal
+    restart: always
+    labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.vllm.rule=PathPrefix(`/llm`)"
-      - "traefik.http.routers.vllm.tls.certresolver=cert-resolver"
-      - "traefik.http.services.vllm.loadbalancer.server.port=8000"
+      - "traefik.http.routers.grafana.rule=Host(`${DOMAIN}`) && PathPrefix(`/stats`)"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - "traefik.http.routers.grafana.middlewares=grafana-strip-prefix"
+      - "traefik.http.middlewares.grafana-strip-prefix.stripprefix.prefixes=/stats"
+
+      # Https
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.websecure.tls=true"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
 
   gpu-stats:
     image: nvcr.io/nvidia/k8s/dcgm-exporter:3.3.8-3.6.0-ubuntu22.04
@@ -78,31 +124,10 @@ services:
       - internal
     restart: always
 
-  grafana:
-    image: grafana/grafana:11.3.1
-    environment:
-      PROMETHEUS_HOST: prometheus
-      PROMETHEUS_PORT: 9090
-      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/stats/"
-      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
-      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin}"
-    volumes:
-      - grafana-storage:/var/lib/grafana
-      - ./grafana-provisioning:/etc/grafana/provisioning
-    networks:
-      - internal
-    restart: always
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.grafana.rule=PathPrefix(`/stats`)"
-      - "traefik.http.routers.grafana.tls.certresolver=cert-resolver"
-      - "traefik.http.routers.grafana.middlewares=grafana-strip-prefix"
-      - "traefik.http.middlewares.grafana-strip-prefix.stripprefix.prefixes=/stats"
-      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
-
 volumes:
   prometheus-storage:
   grafana-storage:
 
 networks:
   internal:
+
