@@ -984,8 +984,8 @@
       },
       {
         "current": {
-          "text": "meta-llama/Llama-3.1-70B-Instruct",
-          "value": "meta-llama/Llama-3.1-70B-Instruct"
+          "text": "meta-llama/Llama-3.3-70B-Instruct",
+          "value": "meta-llama/Llama-3.3-70B-Instruct"
         },
         "datasource": {
           "type": "prometheus",
