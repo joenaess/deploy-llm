@@ -10,7 +10,7 @@ services:
       # HTTPS
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.cert-resolver.acme.email=${ACME_EMAIL:-dummy@email.com}"
-      - "--certificatesresolvers.cert-resolver.acme.storage=acme.json"
+      - "--certificatesresolvers.cert-resolver.acme.storage=/letsencrypt/acme.json"
       - "--certificatesresolvers.cert-resolver.acme.caserver=${CERTIFICATE_SERVER:-https://acme-staging-v02.api.letsencrypt.org/directory}"
       - "--certificatesresolvers.cert-resolver.acme.httpchallenge.entrypoint=web"
     ports:
@@ -18,6 +18,7 @@ services:
       - 443:443
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./letsencrypt:/letsencrypt
     networks:
       - internal
     restart: always
