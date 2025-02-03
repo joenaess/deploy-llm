@@ -38,7 +38,6 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plug
 
 ## Add user to docker group
 sudo usermod -aG docker "$USER"
-newgrp docker
 
 # Installing NVIDIA container toolkit
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
@@ -53,11 +52,10 @@ sudo nvidia-ctk runtime configure --runtime=docker
 sudo systemctl restart docker
 
 
+## Set up firewall
 
-# Enable firewall
-
-sudo ufw enable
 sudo ufw allow 22
+sudo ufw enable
 
 ## Make docker work with ufw
 ## https://github.com/chaifeng/ufw-docker?tab=readme-ov-file#solving-ufw-and-docker-issues
