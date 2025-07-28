@@ -42,11 +42,11 @@ services:
     networks:
       - internal
     command:
-      - "--model=meta-llama/Llama-3.3-70B-Instruct"
+      - "--model=google/gemma-3-4b-it"
       - "--tensor-parallel-size=2"
-      - "--gpu-memory-utilization=0.95"
+      - "--gpu-memory-utilization=0.6"
       - "--disable_log_requests"
-      - "--root-path=/llm"
+      #- "--root-path=/llm"
     ports:
       - 8000:8000
     restart: always
