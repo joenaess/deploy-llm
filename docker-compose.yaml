@@ -1,4 +1,4 @@
-version: "3.7"
+#version: "3.7"
 services:
 
   traefik:
@@ -35,7 +35,9 @@ services:
 
   vllm:
     #image: vllm/vllm-openai:v0.6.4
-    build: . # Build from local Dockerfile
+    image: vllm/vllm-openai:latest
+
+    #build: . # Build from local Dockerfile
     environment:
       HF_TOKEN: ${HF_TOKEN}
     volumes:
@@ -43,7 +45,7 @@ services:
     networks:
       - internal
     command:
-      - "--model=google/gemma-3-1b-it"
+      - "--model=google/gemma-3-4b-it"
       - "--tensor-parallel-size=2"
       - "--gpu-memory-utilization=0.6"
       - "--disable_log_requests"
