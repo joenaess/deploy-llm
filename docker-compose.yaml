@@ -34,7 +34,8 @@ services:
     restart: always
 
   vllm:
-    image: vllm/vllm-openai:v0.6.4
+    #image: vllm/vllm-openai:v0.6.4
+    build: . # Build from local Dockerfile
     environment:
       HF_TOKEN: ${HF_TOKEN}
     volumes:
@@ -42,11 +43,11 @@ services:
     networks:
       - internal
     command:
-      - "--model=google/gemma-3-4b-it"
+      - "--model=google/gemma-3-1b-it"
       - "--tensor-parallel-size=2"
       - "--gpu-memory-utilization=0.6"
       - "--disable_log_requests"
-      #- "--root-path=/llm"
+      - "--root-path=/llm"
     ports:
       - 8000:8000
     restart: always
@@ -62,8 +63,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.services.vllm.loadbalancer.server.port=8000"
       - "traefik.http.routers.vllm.rule=Host(`${DOMAIN}`) && PathPrefix(`/llm`)"
-      - "traefik.http.routers.vllm.middlewares=vllm-strip-prefix"
-      - "traefik.http.middlewares.vllm-strip-prefix.stripprefix.prefixes=/llm"
+      #- "traefik.http.routers.vllm.middlewares=vllm-strip-prefix"
+      #- "traefik.http.middlewares.vllm-strip-prefix.stripprefix.prefixes=/llm"
 
       # Https
       - "traefik.http.routers.vllm.tls.certresolver=letsencrypt"
