@@ -1,15 +1,21 @@
 #!/bin/bash
 
+# Stop on any error
+set -e
+echo "--- Updating and Upgrading System ---"
 sudo apt update
 sudo apt upgrade -y
 
 # Automatically restart outdated services during install process
+echo "--- Configuring automatic service restarts ---"
 sudo sed -i "/#\$nrconf{restart} = 'i';/s/.*/\$nrconf{restart} = 'a';/" /etc/needrestart/needrestart.conf
 
 # Install gcc
+echo "--- Installing GCC ---"
 sudo apt install -y gcc
 
 # Install cuda
+echo "--- Installing CUDA Toolkit ---"
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
 sudo dpkg -i cuda-keyring_1.1-1_all.deb
 sudo apt-get update
@@ -17,9 +23,12 @@ sudo apt-get -y install cuda-toolkit-12-6
 rm cuda-keyring_1.1-1_all.deb
 
 # Install NVIDIA drivers
+echo "--- Installing NVIDIA Drivers ---"
 sudo apt-get install -y nvidia-open
 
 # Install docker
+echo "--- Installing Docker ---"
+
 ## Add Docker's official GPG key:
 sudo apt-get install ca-certificates curl
 sudo install -m 0755 -d /etc/apt/keyrings
@@ -40,6 +49,7 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plug
 sudo usermod -aG docker "$USER"
 
 # Installing NVIDIA container toolkit
+echo "--- Installing NVIDIA Container Toolkit ---"
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
         && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
         sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
@@ -53,41 +63,19 @@ sudo systemctl restart docker
 
 
 ## Set up firewall
+echo "--- Setting up Firewall (UFW) ---"
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
 
-sudo ufw allow 22
+# Make docker work with ufw using the ufw-docker utility for robustness
+echo "--- Installing ufw-docker utility to fix firewall compatibility ---"
+sudo wget -O /usr/local/bin/ufw-docker https://github.com/chaifeng/ufw-docker/raw/master/ufw-docker
+sudo chmod +x /usr/local/bin/ufw-docker
+ufw-docker install
+
+echo "--- Enabling and reloading firewall ---"
 sudo ufw enable
-
-## Make docker work with ufw
-## https://github.com/chaifeng/ufw-docker?tab=readme-ov-file#solving-ufw-and-docker-issues
-
-sudo sh -c 'echo "# BEGIN UFW AND DOCKER
-*filter
-:ufw-user-forward - [0:0]
-:ufw-docker-logging-deny - [0:0]
-:DOCKER-USER - [0:0]
--A DOCKER-USER -j ufw-user-forward
-
--A DOCKER-USER -j RETURN -s 10.0.0.0/8
--A DOCKER-USER -j RETURN -s 172.16.0.0/12
--A DOCKER-USER -j RETURN -s 192.168.0.0/16
-
--A DOCKER-USER -p udp -m udp --sport 53 --dport 1024:65535 -j RETURN
-
--A DOCKER-USER -j ufw-docker-logging-deny -p tcp -m tcp --tcp-flags FIN,SYN,RST,ACK SYN -d 192.168.0.0/16
--A DOCKER-USER -j ufw-docker-logging-deny -p tcp -m tcp --tcp-flags FIN,SYN,RST,ACK SYN -d 10.0.0.0/8
--A DOCKER-USER -j ufw-docker-logging-deny -p tcp -m tcp --tcp-flags FIN,SYN,RST,ACK SYN -d 172.16.0.0/12
--A DOCKER-USER -j ufw-docker-logging-deny -p udp -m udp --dport 0:32767 -d 192.168.0.0/16
--A DOCKER-USER -j ufw-docker-logging-deny -p udp -m udp --dport 0:32767 -d 10.0.0.0/8
--A DOCKER-USER -j ufw-docker-logging-deny -p udp -m udp --dport 0:32767 -d 172.16.0.0/12
-
--A DOCKER-USER -j RETURN
-
--A ufw-docker-logging-deny -m limit --limit 3/min --limit-burst 10 -j LOG --log-prefix "[UFW DOCKER BLOCK] "
--A ufw-docker-logging-deny -j DROP
-
-COMMIT
-# END UFW AND DOCKER" >> /etc/ufw/after.rules'
-
 sudo ufw reload
 
-echo "Installation done. Reboot for the changes to have effect"
+echo "--- Installation done. Please reboot the system for all changes to take effect. ---"
